@@ -34,7 +34,7 @@ const pool = new Pool({
     port: process.env.PGPORT,
     user: process.env.PGUSER,
     password: process.env.PGPASSWORD,
-    database: 'streamiq'
+    database: process.env.PGDATABASE
 })
 
 // Mood name -> UI category (vibe, humor, story, experience)
