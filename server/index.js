@@ -333,9 +333,9 @@ app.get('/api/titles/filter', async (req, res) => {
                     FROM titles
                     ${joinSql}
                     ${whereSql}
-                    GROUP BY titles.tmdb_id, titles.title, titles.type, titles.overview,
-                           titles.release_year, titles.popularity, titles.vote_average,
-                           titles.poster_path
+                   GROUP BY titles.id, titles.tmdb_id, titles.title, titles.type, titles.overview,
+                    titles.release_year, titles.popularity, titles.vote_average,
+                    titles.poster_path
                     ORDER BY titles.popularity DESC
                 `, values)
         res.json(result.rows)

@@ -768,7 +768,7 @@
     moviesGenreCache: {}, showsGenreCache: {},
     movieGenre: null, tvGenre: null,
     moviesPage: 1, tvPage: 1,
-    selectedMoods: new Set(),
+    selectedMoods: [],
     browse: { type: 'both', genres: new Set(), era: 'any', rating: 'any', sort: 'popularity' },
     loaded: {}
   };
@@ -1225,13 +1225,23 @@
     }
   }
 
+  function isMoodSelected(name) {
+    return state.selectedMoods.includes(name);
+  }
+
+  function buildMoodFilterUrl(moods) {
+    const params = new URLSearchParams({ match: 'any' });
+    moods.forEach(m => params.append('mood', m));
+    return '/api/titles/filter?' + params;
+  }
+
   /* ── Moods ── */
   function buildMoodPicker() {
     const root = $('#mood-cats');
     root.innerHTML = Object.entries(MOOD_GROUPS).map(([cat, moods]) => {
       const btns = moods.map(name => {
         const tip = esc(state.moodsMeta[name]?.description || name);
-        const on = state.selectedMoods.has(name) ? ' on' : '';
+        const on = isMoodSelected(name) ? ' on' : '';
         return `<button type="button" class="mbtn mbtn--${cat}${on}" data-mood="${esc(name)}" data-tip="${tip}" data-cat="${cat}">${esc(name)}</button>`;
       }).join('');
       return `<div class="mood-cat mood-cat--${cat}"><div class="mood-cat-label">${CAT_LABELS[cat]}</div><div class="mood-btns">${btns}</div></div>`;
@@ -1242,28 +1252,35 @@
   }
 
   function toggleMood(name) {
-    if (state.selectedMoods.has(name)) state.selectedMoods.delete(name);
-    else state.selectedMoods.add(name);
+    const idx = state.selectedMoods.indexOf(name);
+    if (idx >= 0) state.selectedMoods.splice(idx, 1);
+    else state.selectedMoods.push(name);
     updateMoodUI();
     buildMoodPicker();
     loadMoodResults();
   }
 
   function updateMoodUI() {
-    const n = state.selectedMoods.size;
+    const n = state.selectedMoods.length;
     const row = $('#mood-chips-row');
     row.hidden = !n;
-    $('#mood-chips').innerHTML = [...state.selectedMoods].map(m =>
+    $('#mood-chips').innerHTML = state.selectedMoods.map(m =>
       `<span class="mchip">${esc(m)} <button type="button" data-rm="${esc(m)}">×</button></span>`
     ).join('');
     $('#mood-chips').querySelectorAll('[data-rm]').forEach(b => {
-      b.addEventListener('click', () => { state.selectedMoods.delete(b.dataset.rm); updateMoodUI(); buildMoodPicker(); loadMoodResults(); });
+      b.addEventListener('click', () => {
+        const i = state.selectedMoods.indexOf(b.dataset.rm);
+        if (i >= 0) state.selectedMoods.splice(i, 1);
+        updateMoodUI();
+        buildMoodPicker();
+        loadMoodResults();
+      });
     });
     $('#mood-results-head').hidden = !n;
   }
 
   $('#mood-clear').addEventListener('click', () => {
-    state.selectedMoods.clear();
+    state.selectedMoods = [];
     updateMoodUI();
     buildMoodPicker();
     $('#mood-grid').innerHTML = '<div class="empty"><div class="empty-icon">✨</div>Pick a mood above to find your next watch</div>';
@@ -1273,17 +1290,14 @@
   async function loadMoodResults() {
     const grid = $('#mood-grid');
     const counter = $('#mood-counter');
-    if (!state.selectedMoods.size) {
+    if (!state.selectedMoods.length) {
       grid.innerHTML = '<div class="empty"><div class="empty-icon">✨</div>Pick a mood above to find your next watch</div>';
       counter.textContent = '';
       return;
     }
     showGridLoading(grid);
-    const moods = [...state.selectedMoods];
     try {
-      const params = new URLSearchParams({ match: 'any' });
-      moods.forEach(m => params.append('mood', m));
-      const items = await api('/api/titles/filter?' + params);
+      const items = await api(buildMoodFilterUrl(state.selectedMoods));
       counter.textContent = `${items.length} title${items.length === 1 ? '' : 's'} match this vibe`;
       renderGrid(grid, items);
     } catch {
